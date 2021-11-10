@@ -19,7 +19,7 @@ def hello_world():
 def predict():
     if not request.method == "POST" :
         jsonError = {'error': 'Access Denied!'} 
-        #return json.dumps([{'text' : 'Access Denied!'}])
+        
         return jsonify(jsonError)	
 
     if request.files.get("image") :
