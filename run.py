@@ -29,9 +29,10 @@ def predict():
         image_file.save('./images/' + imageFileName)
         #img = Image.open(io.BytesIO(image_bytes))
         img = cv2.imread('./images/' + imageFileName)
-        result = classify.classify(img)
-        returnJson = {'result': result}
-	
+        #threshold, result = classify.classify(img)
+        #returnJson = {'result': result, 'threshold': threshold}
+        returnJson = classify.classify(img)
+
         return jsonify(returnJson)
         #return json.dumps([{'result' : result}])
 
