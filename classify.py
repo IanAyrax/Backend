@@ -25,50 +25,52 @@ def classify(img_eye) :
     return returnJson
 
 def crop_image(img) :
-    y1 = int(img.shape[0]/1.6) - 40
-    y2 = int(img.shape[0]/1.6) + 25
+    y1 = int(img.shape[0]/1.7) - 30
+    y2 = int(img.shape[0]/1.7) + 30
 
-    x1 = int(img.shape[1]/2) - 40
+    x1 = int(img.shape[1]/2) - 25
     x2 = int(img.shape[1]/2) + 35
 
     #cv2.rectangle(img_test, pt1=(x1,y1), pt2=(x2,y2), color=(255, 0, 255), thickness=3)
     cropped_img = img[y1:y2, x1:x2]
 
-    img_phone = cv2.resize(cropped_img, (491, 491), interpolation = cv2.INTER_AREA)
+    img_phone = cv2.resize(cropped_img, (500, 500), interpolation = cv2.INTER_AREA)
 
     return img_phone
 
 def preprocess(img_eye) :
-    img_eye =cv2.blur(img_eye, (40, 40))
-    img_r, img_g, img_b, _ = cv2.mean(img_eye)
-    img_bright = (img_r + img_b + img_g) / 3
+    # img_eye =cv2.blur(img_eye, (40, 40))
+    # img_r, img_g, img_b, _ = cv2.mean(img_eye)
+    # img_bright = (img_r + img_b + img_g) / 3
     
-    canny_1 = 50 
-    canny_2 = 60
+    # canny_1 = 50 
+    # canny_2 = 60
 
-    if img_bright > 60 :
-        print("light") 
-    else :
-        print("dark")
-        img_eye = brightness_settings(img_eye, 50)
-        canny_1 = 20 
-        canny_2 = 20
+    # if img_bright > 60 :
+    #     print("light") 
+    # else :
+    #     print("dark")
+    #     img_eye = brightness_settings(img_eye, 50)
+    #     canny_1 = 20 
+    #     canny_2 = 20
         
     #Hough Transform to detect the iris
     real_img = img_eye.copy()
+    input_img = img_eye.copy()
     
-    preprocessing = contrast_settings(real_img.copy(), 90)
+    #preprocessing = contrast_settings(real_img.copy(), 90)
 
     preprocessing = cv2.cvtColor(preprocessing, cv2.COLOR_BGR2GRAY)
     #preprocessing = cv2.blur(preprocessing, (40, 40))
     preprocessing = cv2.medianBlur(preprocessing, 7)
     ret, line = cv2.threshold(preprocessing, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    preprocessing = cv2.Canny(preprocessing, canny_1, canny_2, apertureSize=3)
+    preprocessing = cv2.Canny(preprocessing, 20, 30, apertureSize=3)
+    #preprocessing = cv2.Canny(preprocessing, canny_1, canny_2, apertureSize=3)
     #preprocessing = cv2.Canny(line,0,0)
 
     rows = preprocessing.shape[0]
-    #circles = cv2.HoughCircles(preprocessing, cv2.HOUGH_GRADIENT, 1, rows / 4, param1=ret, param2=10, minRadius=250, maxRadius=real_img.shape[0])
-    circles = cv2.HoughCircles(preprocessing, cv2.HOUGH_GRADIENT, 1, rows / 4, param1=ret, param2=10, minRadius=int(real_img.shape[0]/2), maxRadius=real_img.shape[0] - 150)
+    circles = cv2.HoughCircles(preprocessing, cv2.HOUGH_GRADIENT, 1, rows / 4, param1=ret, param2=10, minRadius=250, maxRadius=real_img.shape[0])
+    #circles = cv2.HoughCircles(preprocessing, cv2.HOUGH_GRADIENT, 1, rows / 4, param1=ret, param2=10, minRadius=int(real_img.shape[0]/2), maxRadius=real_img.shape[0] - 150)
 
     img_center = (int(real_img.shape[0]/2),int(real_img.shape[1] /2))
     img_radius = int(real_img.shape[0])
@@ -93,10 +95,20 @@ def preprocess(img_eye) :
     cluster_center = (int(clf.cluster_centers_[0][0]) ,int(clf.cluster_centers_[0][1]))
 
     #radius = int(real_img.shape[0]/2)
-    radius = int(real_img.shape[0]/ 2 * 8 / 10)
+    # radius = int(real_img.shape[0]/ 2 * 8 / 10)
     #cv2.circle(preprocessing, cluster_center, radius - 20, (255, 0, 255), 3)
     #cv2.circle(real_img, cluster_center, radius - 20, (255, 0, 255), 3)
+    
+    closest_idx, closest_distance = closest_point(cluster_center, x_o)
 
+    if closest_distance <= 6000 :
+        radius = radiuses_o[closest_idx]
+        cluster_center = (x_o[closest_idx][0], x_o[closest_idx][0])
+    else :
+        radius = int(np.average(hough_radiuses) / 2)
+
+    radius = radius - 30
+    
     return radius, cluster_center
 
 def rubberSheetModel(image, height, width, r_in, r_out, center):
@@ -160,11 +172,13 @@ def extractFeature(img, radius, center) :
     ry_1 = int(center[1] - r_out)
     ry_2 = int(center[1] + r_out)
     
-    fin_img = rubberSheetModel(img[ry_1:ry_2, rx_1:rx_2], h, w, r_in, r_out, center)
-    fin_img = cv2.blur(fin_img, (40, 40))
+    reflect_rm_img = removeReflection(img)
 
-    img_r, img_g, img_b, _ = cv2.mean(fin_img)
-    img_rgb = int((img_r + img_b + img_g) / 3)
+    fin_img = rubberSheetModel(reflect_rm_img[ry_1:ry_2, rx_1:rx_2], h, w, r_in, r_out, center)
+    # fin_img = cv2.blur(fin_img, (40, 40))
+
+    # img_r, img_g, img_b, _ = cv2.mean(fin_img)
+    # img_rgb = int((img_r + img_b + img_g) / 3)
 
     #Preprocess Image
     fin_img = cv2.cvtColor(fin_img, cv2.COLOR_BGR2GRAY)
@@ -179,7 +193,7 @@ def extractFeature(img, radius, center) :
 
 
 def predict(input = 0) :
-    clf = load('result_old.joblib') 
+    clf = load('result_new.joblib') 
     result = clf.predict([[input]])
     result = result[0]
 
@@ -216,3 +230,14 @@ def contrast_settings(img, contrast=127):
         buf = img.copy()
     
     return buf
+
+def removeReflection(img):
+    ret, mask = cv2.threshold(img, 254, 255, cv2.THRESH_BINARY)
+#     kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((10, 20), np.uint8)
+    dilation = cv2.dilate(mask, kernel, iterations=1)
+    grayscale = cv2.cvtColor(dilation, cv2.COLOR_BGR2GRAY)
+
+    preprocessing = cv2.inpaint(img, grayscale, 5, cv2.INPAINT_TELEA)
+    
+    return preprocessing

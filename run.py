@@ -8,6 +8,7 @@ import json
 from flask import Flask, request, jsonify
 
 import classify
+import classify2
 
 my_app = Flask(__name__)
 
@@ -31,7 +32,8 @@ def predict():
         img = cv2.imread('./images/' + imageFileName)
         #threshold, result = classify.classify(img)
         #returnJson = {'result': result, 'threshold': threshold}
-        returnJson = classify.classify(img)
+        # returnJson = classify.classify(img)
+        returnJson = classify2.classify(img)
 
         return jsonify(returnJson)
         #return json.dumps([{'result' : result}])
